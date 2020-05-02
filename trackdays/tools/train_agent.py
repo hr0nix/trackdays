@@ -99,11 +99,11 @@ def compute_average_return(environment, policy, num_episodes):
     return (total_return / num_episodes).numpy()[0]
 
 
-def create_replay_buffer(agent, train_env):
+def create_replay_buffer(agent, train_env, replay_buffer_size):
     return tf_uniform_replay_buffer.TFUniformReplayBuffer(
         data_spec=agent.collect_data_spec,
         batch_size=train_env.batch_size,
-        max_length=10000,
+        max_length=replay_buffer_size,
     )
 
 
@@ -120,24 +120,29 @@ def train_agent(
         total_training_steps=100000,
         loss_report_rate=100,
         avg_return_report_rate=500,
+        initial_collect_steps=10000,
+        training_iteration_collect_steps=1,
+        replay_buffer_size=10000,
+        num_eval_episodes=3,
         env_config=None,
 ):
     train_env = load_env(env_config)
     eval_env = load_env(env_config)
 
     agent = create_sac_agent(train_env)
-    eval_policy = greedy_policy.GreedyPolicy(agent.policy)
-
-    replay_buffer = create_replay_buffer(agent, train_env)
-
-    collect_driver = create_collect_driver(train_env, agent, replay_buffer, collect_steps=1)
-
     agent.train = common.function(agent.train)
-    collect_driver.run = common.function(collect_driver.run)
     agent.train_step_counter.assign(0)
 
+    eval_policy = greedy_policy.GreedyPolicy(agent.policy)
+
+    replay_buffer = create_replay_buffer(agent, train_env, replay_buffer_size)
+
+    collect_driver = create_collect_driver(
+        train_env, agent, replay_buffer, collect_steps=training_iteration_collect_steps)
+    collect_driver.run = common.function(collect_driver.run)
+
     initial_collect_driver = create_collect_driver(
-        train_env, agent, replay_buffer, collect_steps=1000
+        train_env, agent, replay_buffer, collect_steps=initial_collect_steps
     )
     initial_collect_driver.run()
 
@@ -146,7 +151,7 @@ def train_agent(
     ).prefetch(1)
     dataset_iter = iter(dataset)
 
-    avg_return = compute_average_return(eval_env, eval_policy, num_episodes=1)
+    avg_return = compute_average_return(eval_env, eval_policy, num_episodes=num_eval_episodes)
     print('Before start: avg return={0}'.format(avg_return))
 
     for _ in range(total_training_steps):
@@ -159,7 +164,7 @@ def train_agent(
             print('Step {0}: loss={1}'.format(step, train_loss.loss))
 
         if step % avg_return_report_rate == 0:
-            avg_return = compute_average_return(eval_env, eval_policy, num_episodes=1)
+            avg_return = compute_average_return(eval_env, eval_policy, num_episodes=num_eval_episodes)
             print('Step {0}: avg return={1}'.format(step, avg_return))
 
     return agent
