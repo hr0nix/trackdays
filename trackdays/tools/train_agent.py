@@ -3,6 +3,8 @@ import trackdays.envs.race_circuit
 import tensorflow as tf
 tf.compat.v1.enable_v2_behavior()
 
+import gym
+
 from tf_agents.agents.sac import sac_agent
 from tf_agents.agents.ddpg import critic_network
 from tf_agents.environments import suite_gym, tf_py_environment
@@ -13,11 +15,12 @@ from tf_agents.policies import greedy_policy, random_tf_policy
 from tf_agents.utils import common
 
 
-def load_env(visualize):
-    # TODO: learn how to disable visualization
-    return tf_py_environment.TFPyEnvironment(
-        suite_gym.load('racecircuit-v0')
-    )
+def load_env():
+    gym_env = gym.make('racecircuit-v0', config={
+        'offscreen_rendering': True,
+    })
+    tf_agents_env = suite_gym.wrap_env(gym_env)
+    return tf_py_environment.TFPyEnvironment(tf_agents_env)
 
 
 def create_critic_network(train_env):
@@ -114,9 +117,13 @@ def create_collect_driver(train_env, agent, replay_buffer, collect_steps):
     )
 
 
-def main():
-    train_env = load_env(visualize=False)
-    eval_env = load_env(visualize=True)
+def main(
+        total_training_steps=100000,
+        loss_report_rate=100,
+        avg_return_report_rate=500,
+):
+    train_env = load_env()
+    eval_env = load_env()
 
     agent = create_sac_agent(train_env)
     eval_policy = greedy_policy.GreedyPolicy(agent.policy)
@@ -143,18 +150,16 @@ def main():
     print('Before start: avg return={0}'.format(avg_return))
     avg_returns = [avg_return]
 
-
-
-    for _ in range(1000000):
+    for _ in range(total_training_steps):
         collect_driver.run()
 
         experience, _ = next(dataset_iter)
         train_loss = agent.train(experience)
         step = agent.train_step_counter.numpy()
-        if step % 10 == 0:
+        if step % loss_report_rate == 0:
             print('Step {0}: loss={1}'.format(step, train_loss.loss))
 
-        if step % 300 == 0:
+        if step % avg_return_report_rate == 0:
             avg_return = compute_average_return(eval_env, eval_policy, num_episodes=1)
             print('Step {0}: avg return={1}'.format(step, avg_return))
             avg_returns.append(avg_return)
