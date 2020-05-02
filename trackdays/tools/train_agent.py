@@ -117,7 +117,8 @@ def create_collect_driver(train_env, agent, replay_buffer, collect_steps):
     )
 
 
-def main(
+def train_agent(
+        batch_size=32,
         total_training_steps=100000,
         loss_report_rate=100,
         avg_return_report_rate=500,
@@ -142,13 +143,12 @@ def main(
     initial_collect_driver.run()
 
     dataset = replay_buffer.as_dataset(
-        num_parallel_calls=2, sample_batch_size=32, num_steps=2
+        num_parallel_calls=2, sample_batch_size=batch_size, num_steps=2
     ).prefetch(1)
     dataset_iter = iter(dataset)
 
     avg_return = compute_average_return(eval_env, eval_policy, num_episodes=1)
     print('Before start: avg return={0}'.format(avg_return))
-    avg_returns = [avg_return]
 
     for _ in range(total_training_steps):
         collect_driver.run()
@@ -162,8 +162,9 @@ def main(
         if step % avg_return_report_rate == 0:
             avg_return = compute_average_return(eval_env, eval_policy, num_episodes=1)
             print('Step {0}: avg return={1}'.format(step, avg_return))
-            avg_returns.append(avg_return)
+
+    return agent
 
 
 if __name__ == '__main__':
-    main()
+    train_agent()
