@@ -33,14 +33,21 @@ class Circuit(object):
     def road(self):
         return self._road
 
+    @property
+    def start_lane_index(self):
+        return self._route and self._route[0]
+
+    def get_route(self):
+        return list(self._route)
+
     def _create_circuit(self):
         circular_radius = 50
         circular_lane_1 = CircularLane(
-            center=[0, 0], radius=circular_radius, start_phase=0, end_phase=math.pi * 0.5,
+            center=(0.0, 0.0), radius=circular_radius, start_phase=0, end_phase=math.pi * 0.5,
             speed_limit=self.speed_limit, width=self.circuit_width,
         )
         circular_lane_2 = CircularLane(
-            center=[0, 0], radius=circular_radius, start_phase=math.pi * 0.5, end_phase=math.pi,
+            center=(0.0, 0.0), radius=circular_radius, start_phase=math.pi * 0.5, end_phase=math.pi,
             speed_limit=self.speed_limit, width=self.circuit_width,
         )
         circular_lane_start = circular_lane_1.position(0, 0)
@@ -110,22 +117,26 @@ class RaceCircuitEnv(AbstractEnv):
                 'circuit_width': 10,
             },
             'race_config': {
-                'lap_count': 1,
+                'max_lap_count': 2,
+                'max_steps': 100,
+                'out_of_circuit_stop_margin': 10,
             },
             'reward_config': {
-                'out_of_track': -10,
+                'out_of_circuit_reward_scale': -2,
                 'tick': -1,
-                'lap_progress': 0.1,
+                'lap_progress': 1,
             },
-            'screen_width': 400,
-            'screen_height': 400,
+            'screen_width': 200,
+            'screen_height': 200,
             'scaling': 3,
-            'centering_position': [0.8, 0.5],
+            'centering_position': [0.5, 0.5],
+            'simulation_frequency': 6,
+            'policy_frequency': 3,
             'observation': {
                 'type': 'GrayscaleObservation',
                 'weights': [0.33, 0.33, 0.33],
                 'stack_size': 4,
-                'observation_shape': (400, 400),
+                'observation_shape': (200, 200),
             },
             'action': {
                 'type': 'Continuous'
@@ -143,49 +154,74 @@ class RaceCircuitEnv(AbstractEnv):
         self._make_road()
         self._make_vehicles()
         self._lap_number = 0
+        self._steps = 0
         return super().reset()
 
     def step(self, action):
         self._vehicle_pos_before_update = self.vehicle.position.copy()
         result = super().step(action)
-        self._update_lap_number()
+        self._update_progress()
         return result
 
-    def _update_lap_number(self):
+    def _update_progress(self):
         last_progress, finish_line_crossed = self._circuit.get_lap_progress(
             self._vehicle_pos_before_update, self.vehicle.position
         )
         if finish_line_crossed:
             self._lap_number += math.copysign(1, last_progress)
+        self._steps += 1
 
     def _make_road(self):
         self._circuit = Circuit(self.config['circuit_config'], self.np_random)
         self.road = self._circuit.road
 
     def _make_vehicles(self):
-        self.vehicle = Vehicle.make_on_lane(self.road, lane_index=('start', 'int1', 0), longitudinal=0, velocity=0)
-        self._prev_pos = self.vehicle.position
+        route = self._circuit.get_route()
+        start_lane_index = route[self.np_random.choice(len(route))]
+        start_lane = self.road.network.get_lane(start_lane_index)
+        self.vehicle = Vehicle.make_on_lane(
+            self.road,
+            lane_index=start_lane_index,
+            longitudinal=self.np_random.uniform(0.0, start_lane.length),
+            velocity=self.np_random.uniform(0.0, 15.0),
+        )
+        self._prev_pos = self.vehicle.position.copy()
         self.road.vehicles.append(self.vehicle)
 
     def _is_terminal(self):
-        return self._lap_number >= self.race_config('lap_count')
+        if self._lap_number >= self.race_config('max_lap_count'):
+            return True
+
+        if self._steps >= self.race_config('max_steps'):
+            return True
+
+        if self._out_of_lane_degree() > self.race_config('out_of_circuit_stop_margin'):
+            return True
+
+        return False
+
+    def _out_of_lane_degree(self):
+        long, lat = self.vehicle.lane.local_coordinates(self.vehicle.position)
+        long_dist = max(max(-long, 0), max(long - self.vehicle.lane.length, 0))
+        lat_dist = max(max(-lat - self.vehicle.lane.width * 0.5, 0), max(lat - self.vehicle.lane.width * 0.5, 0))
+        return max(long_dist, lat_dist)
 
     def _reward(self, action):
-        circuit_pos = self._circuit.get_circuit_pos(self.vehicle.position)
+        #circuit_pos = self._circuit.get_circuit_pos(self.vehicle.position)
 
         last_progress, last_finish_line_crossed = self._circuit.get_lap_progress(
             self._vehicle_pos_before_update, self.vehicle.position)
-        print('Last progress: %.1fm, last finish line crossed: %s' % (last_progress, last_finish_line_crossed))
-        print('Lap number: %d, relative lap pos: %.2f' % (
-            self._lap_number, circuit_pos / self._circuit.circuit_length
-        ))
+        # print('Last progress: %.1fm, last finish line crossed: %s' % (last_progress, last_finish_line_crossed))
+        # print('Lap number: %d, relative lap pos: %.2f' % (
+        #     self._lap_number, circuit_pos / self._circuit.circuit_length
+        # ))
 
         reward = self.reward_config('tick')
-        if not self.vehicle.lane.on_lane(self.vehicle.position):
-            reward += self.reward_config('out_of_track')
+        self.vehicle.lane.local_coordinates(self.vehicle.position)
+        reward += self._out_of_lane_degree() * self.reward_config('out_of_circuit_reward_scale')
         reward += self.reward_config('lap_progress') * last_progress
 
-        print('Reward: %.2f' % reward)
+        # print('Action: {0} reward: {1}'.format(action, reward))
         return reward
 
 
