@@ -15,10 +15,8 @@ from tf_agents.policies import greedy_policy, random_tf_policy
 from tf_agents.utils import common
 
 
-def load_env():
-    gym_env = gym.make('racecircuit-v0', config={
-        'offscreen_rendering': True,
-    })
+def load_env(env_config):
+    gym_env = gym.make('racecircuit-v0', config=env_config or {})
     tf_agents_env = suite_gym.wrap_env(gym_env)
     return tf_py_environment.TFPyEnvironment(tf_agents_env)
 
@@ -122,9 +120,10 @@ def train_agent(
         total_training_steps=100000,
         loss_report_rate=100,
         avg_return_report_rate=500,
+        env_config=None,
 ):
-    train_env = load_env()
-    eval_env = load_env()
+    train_env = load_env(env_config)
+    eval_env = load_env(env_config)
 
     agent = create_sac_agent(train_env)
     eval_policy = greedy_policy.GreedyPolicy(agent.policy)
