@@ -14,8 +14,6 @@ setuptools.setup(
       install_requires=[
             'tensorflow',
             'tf-agents',
-      ],
-      dependency_links=[
-            'git+https://github.com/eleurent/highway-env',
+            'highway-env @ git+https://github.com/eleurent/highway-env'
       ],
 )
