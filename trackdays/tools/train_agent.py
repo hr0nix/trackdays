@@ -82,21 +82,25 @@ def create_sac_agent(train_env):
     )
 
 
-def compute_average_return(environment, policy, num_episodes):
+def evaluate_policy(environment, policy, num_episodes):
     print('Evaluating agent')
 
-    total_return = 0
+    total_return = 0.0
+    total_num_steps = 0.0
     for _ in range(num_episodes):
         time_step = environment.reset()
-        episode_return = 0
+        episode_return = 0.0
+        episode_num_steps = 0.0
 
         while not time_step.is_last():
             action_step = policy.action(time_step)
             time_step = environment.step(action_step.action)
             episode_return += time_step.reward
+            episode_num_steps += 1
         total_return += episode_return
+        total_num_steps += episode_num_steps
 
-    return (total_return / num_episodes).numpy()[0]
+    return (total_return / num_episodes).numpy()[0], total_num_steps / num_episodes
 
 
 def create_replay_buffer(agent, train_env, replay_buffer_size):
@@ -153,8 +157,8 @@ def train_agent(
     ).prefetch(1)
     dataset_iter = iter(dataset)
 
-    avg_return = compute_average_return(eval_env, eval_policy, num_episodes=num_eval_episodes)
-    print('Before start: avg return={0}'.format(avg_return))
+    avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
+    print('Before start: avg return={0}, avg num steps={1}'.format(avg_return, avg_num_steps))
 
     for _ in range(total_training_steps):
         collect_driver.run()
@@ -167,8 +171,8 @@ def train_agent(
             print('Step {0}: loss={1}'.format(step, train_loss.loss))
 
         if step % avg_return_report_rate == 0:
-            avg_return = compute_average_return(eval_env, eval_policy, num_episodes=num_eval_episodes)
-            print('Step {0}: avg return={1}'.format(step, avg_return))
+            avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
+            print('Step {0}: avg return={1}, avg num steps={2}'.format(step, avg_return, avg_num_steps))
 
         if step % eval_callback_rate == 0:
             if eval_callback is not None:
