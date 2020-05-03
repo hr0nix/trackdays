@@ -119,12 +119,14 @@ def train_agent(
         batch_size=32,
         total_training_steps=100000,
         loss_report_rate=100,
+        eval_callback_rate=None,
         avg_return_report_rate=500,
         initial_collect_steps=10000,
         training_iteration_collect_steps=1,
         replay_buffer_size=10000,
         num_eval_episodes=3,
         env_config=None,
+        eval_callback=None,
 ):
     train_env = load_env(env_config)
     eval_env = load_env(env_config)
@@ -160,12 +162,17 @@ def train_agent(
         experience, _ = next(dataset_iter)
         train_loss = agent.train(experience)
         step = agent.train_step_counter.numpy()
+
         if step % loss_report_rate == 0:
             print('Step {0}: loss={1}'.format(step, train_loss.loss))
 
         if step % avg_return_report_rate == 0:
             avg_return = compute_average_return(eval_env, eval_policy, num_episodes=num_eval_episodes)
             print('Step {0}: avg return={1}'.format(step, avg_return))
+
+        if step % eval_callback_rate == 0:
+            if eval_callback is not None:
+                eval_callback(eval_env, eval_policy)
 
     return agent
 

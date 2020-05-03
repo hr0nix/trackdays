@@ -123,8 +123,8 @@ class RaceCircuitEnv(AbstractEnv):
             },
             'reward_config': {
                 'out_of_circuit_reward_scale': -2,
-                'tick': -1,
-                'lap_progress': 1,
+                'tick': -0.5,
+                'lap_progress': 2,
             },
             'screen_width': 200,
             'screen_height': 200,
