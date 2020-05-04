@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
       name='trackdays',
-      version='0.1.6',
+      version='0.1.7',
       description='An RL environment and training code for a car on a racetrack.',
       url='http://github.com/hr0nix/trackdays',
       author='Boris Yangel',
