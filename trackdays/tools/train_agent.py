@@ -44,7 +44,10 @@ def create_actor_network(train_env):
     def projection_net_factory(action_spec):
         return normal_projection_network.NormalProjectionNetwork(
             action_spec,
+            mean_transform=None,
             state_dependent_std=True,
+            std_transform=sac_agent.std_clip_transform,
+            scale_distribution=True
         )
 
     return actor_distribution_network.ActorDistributionNetwork(
@@ -124,7 +127,6 @@ def create_collect_driver(train_env, agent, replay_buffer, collect_steps):
 def train_agent(
         batch_size=32,
         total_training_steps=100000,
-        loss_report_rate=100,
         eval_callback_rate=None,
         avg_return_report_rate=500,
         initial_collect_steps=10000,
@@ -160,21 +162,20 @@ def train_agent(
     dataset_iter = iter(dataset)
 
     avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
-    print('Before start: avg return={0}, avg num steps={1}'.format(avg_return, avg_num_steps))
+    tf.summary.scalar('Average return', avg_return, step=0)
+    tf.summary.scalar('Average number of steps', avg_num_steps, step=0)
 
     for _ in range(total_training_steps):
         collect_driver.run()
 
         experience, _ = next(dataset_iter)
-        train_loss = agent.train(experience)
+        agent.train(experience)
         step = agent.train_step_counter.numpy()
-
-        if step % loss_report_rate == 0:
-            print('Step {0}: loss={1}'.format(step, train_loss.loss))
 
         if step % avg_return_report_rate == 0:
             avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
-            print('Step {0}: avg return={1}, avg num steps={2}'.format(step, avg_return, avg_num_steps))
+            tf.summary.scalar('Average return', avg_return, step=step)
+            tf.summary.scalar('Average number of steps', avg_num_steps, step=step)
 
         if step % eval_callback_rate == 0:
             if eval_callback is not None:
