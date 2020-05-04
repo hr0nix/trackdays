@@ -135,7 +135,7 @@ class RaceCircuitEnv(AbstractEnv):
             'observation': {
                 'type': 'GrayscaleObservation',
                 'weights': [0.33, 0.33, 0.33],
-                'stack_size': 4,
+                'stack_size': 1,
                 'observation_shape': (200, 200),
             },
             'action': {
