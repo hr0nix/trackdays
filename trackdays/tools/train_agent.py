@@ -25,18 +25,18 @@ def create_critic_network(train_env):
     return critic_network.CriticNetwork(
         (train_env.observation_spec(), train_env.action_spec()),
         observation_conv_layer_params=[
+            (2, 3, 1),
+            (4, 3, 2),
             (4, 3, 1),
             (8, 3, 2),
             (8, 3, 1),
             (16, 3, 2),
             (16, 3, 1),
             (32, 3, 2),
-            (32, 3, 1),
-            (64, 3, 2),
         ],
-        observation_fc_layer_params=[64],
-        action_fc_layer_params=[4, 16, 64],
-        joint_fc_layer_params=[64, 64],
+        observation_fc_layer_params=[32],
+        action_fc_layer_params=[4, 16, 32],
+        joint_fc_layer_params=[32, 32],
     )
 
 
@@ -54,16 +54,16 @@ def create_actor_network(train_env):
         train_env.observation_spec(),
         train_env.action_spec(),
         conv_layer_params=[
+            (2, 3, 1),
+            (4, 3, 2),
             (4, 3, 1),
             (8, 3, 2),
             (8, 3, 1),
             (16, 3, 2),
             (16, 3, 1),
             (32, 3, 2),
-            (32, 3, 1),
-            (64, 3, 2),
         ],
-        fc_layer_params=[64, 64],
+        fc_layer_params=[32, 32],
         continuous_projection_net=projection_net_factory,
     )
 
