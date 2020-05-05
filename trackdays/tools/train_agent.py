@@ -1,3 +1,5 @@
+import tempfile
+
 import trackdays.envs.race_circuit
 
 import tensorflow as tf
@@ -12,6 +14,7 @@ from tf_agents.networks import actor_distribution_network, normal_projection_net
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.drivers import dynamic_step_driver
 from tf_agents.policies import greedy_policy, random_tf_policy
+from tf_agents.policies.policy_saver import PolicySaver
 from tf_agents.utils import common
 
 
@@ -132,6 +135,10 @@ def train_agent(
         replay_buffer_size=10000,
         num_eval_episodes=3,
         reward_scale_factor=1.0,
+        checkpoint_dir=None,
+        policy_dir=None,
+        policy_save_rate=10000,
+        checkpoint_save_rate=20000,
         env_config=None,
         eval_callback=None,
 ):
@@ -160,6 +167,24 @@ def train_agent(
     ).prefetch(1)
     dataset_iter = iter(dataset)
 
+    if checkpoint_dir is None:
+        checkpoint_dir = tempfile.mkdtemp()
+    print('Checkpoints will be stored in {0}'.format(checkpoint_dir))
+    train_checkpointer = common.Checkpointer(
+        ckpt_dir=checkpoint_dir,
+        max_to_keep=1,
+        agent=agent,
+        policy=agent.policy,
+        replay_buffer=replay_buffer,
+        global_step=agent.train_step_counter,
+    )
+    train_checkpointer.initialize_or_restore()
+
+    if policy_dir is None:
+        policy_dir = tempfile.mkdtemp()
+    print('Learned policies will be stored in {0}'.format(policy_dir))
+    policy_saver = PolicySaver(agent.policy)
+
     avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
     tf.summary.scalar('Average return', avg_return, step=0)
     tf.summary.scalar('Average number of steps', avg_num_steps, step=0)
@@ -179,6 +204,12 @@ def train_agent(
         if step % eval_callback_rate == 0:
             if eval_callback is not None:
                 eval_callback(eval_env, eval_policy)
+
+        if step % policy_save_rate == 0:
+            policy_saver.save(policy_dir)
+
+        if step % checkpoint_save_rate == 0:
+            train_checkpointer.save(agent.train_step_counter)
 
     return agent
 
