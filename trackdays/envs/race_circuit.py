@@ -128,7 +128,7 @@ class RaceCircuitEnv(AbstractEnv):
             },
             'screen_width': 200,
             'screen_height': 200,
-            'scaling': 3,
+            'scaling': 4,
             'centering_position': [0.5, 0.5],
             'simulation_frequency': 6,
             'policy_frequency': 3,
