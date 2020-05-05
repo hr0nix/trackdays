@@ -8,7 +8,7 @@ def main():
     done = False
     total_reward = 0.0
     while not done:
-        action = [0, 0]
+        action = [0, 1]
         obs, reward, done, _ = env.step(action)
         env.render()
 

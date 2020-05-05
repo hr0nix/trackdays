@@ -68,7 +68,7 @@ def create_actor_network(train_env):
     )
 
 
-def create_sac_agent(train_env):
+def create_sac_agent(train_env, reward_scale_factor):
     return sac_agent.SacAgent(
         train_env.time_step_spec(),
         train_env.action_spec(),
@@ -81,15 +81,13 @@ def create_sac_agent(train_env):
         target_update_period=1,
         td_errors_loss_fn=tf.compat.v1.losses.mean_squared_error,
         gamma=0.99,
-        reward_scale_factor=1.0,
+        reward_scale_factor=reward_scale_factor,
         gradient_clipping=None,
         train_step_counter=tf.compat.v1.train.get_or_create_global_step(),
     )
 
 
 def evaluate_policy(environment, policy, num_episodes):
-    print('Evaluating agent')
-
     total_return = 0.0
     total_num_steps = 0.0
     for _ in range(num_episodes):
@@ -133,13 +131,14 @@ def train_agent(
         training_iteration_collect_steps=1,
         replay_buffer_size=10000,
         num_eval_episodes=3,
+        reward_scale_factor=1.0,
         env_config=None,
         eval_callback=None,
 ):
     train_env = load_env(env_config)
     eval_env = load_env(env_config)
 
-    agent = create_sac_agent(train_env)
+    agent = create_sac_agent(train_env, reward_scale_factor)
     agent.train = common.function(agent.train)
     agent.train_step_counter.assign(0)
 
