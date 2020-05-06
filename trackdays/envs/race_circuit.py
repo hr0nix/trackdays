@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import numpy as np
 
@@ -115,6 +116,28 @@ class Circuit(object):
             return cur_circuit_pos - prev_circuit_pos, False
 
 
+class RaceVehicle(Vehicle):
+    MARKER_DISTANCE_AHEAD = 3.0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._front_marker = RoadObject(self.road, position=[0, 0])
+        self._update_front_marker()
+
+    def _update_front_marker(self):
+        front_dir = np.array([math.cos(self.heading), math.sin(self.heading)])
+        self._front_marker.position = self.position + front_dir * self.MARKER_DISTANCE_AHEAD
+        self._front_marker.heading = self.heading
+
+    @property
+    def front_marker(self):
+        return self._front_marker
+
+    def on_state_update(self) -> None:
+        super().on_state_update()
+        self._update_front_marker()
+
+
 class RaceCircuitEnv(AbstractEnv):
     @classmethod
     def default_config(cls):
@@ -165,14 +188,8 @@ class RaceCircuitEnv(AbstractEnv):
         self._steps = 0
         return super().reset()
 
-    def _update_vehicle_front(self):
-        front_dir = np.array([math.cos(self.vehicle.heading), math.sin(self.vehicle.heading)])
-        self.vehicle_front.position = self.vehicle.position + front_dir * 7
-        self.vehicle_front.heading = self.vehicle.heading
-
     def step(self, action):
         self._vehicle_pos_before_update = self.vehicle.position.copy()
-        self._update_vehicle_front()
         result = super().step(action)
         self._update_progress()
         return result
@@ -193,18 +210,16 @@ class RaceCircuitEnv(AbstractEnv):
         route = self._circuit.get_route()
         start_lane_index = route[self.np_random.choice(len(route))]
         start_lane = self.road.network.get_lane(start_lane_index)
-        self.vehicle = Vehicle.make_on_lane(
-            self.road,
-            lane_index=start_lane_index,
-            longitudinal=self.np_random.uniform(0.0, start_lane.length),
+        start_position_long = self.np_random.uniform(0.0, start_lane.length)
+        self.vehicle = RaceVehicle(
+            road=self.road,
+            position=start_lane.position(start_position_long, 0),
+            heading=start_lane.heading_at(start_position_long),
             velocity=self.np_random.uniform(0.0, 15.0),
         )
         self._prev_pos = self.vehicle.position.copy()
         self.road.vehicles.append(self.vehicle)
-
-        self.vehicle_front = RoadObject(self.road, position=[0, 0])
-        self.road.objects.append(self.vehicle_front)
-        self._update_vehicle_front()
+        self.road.objects.append(self.vehicle.front_marker)
 
     def _is_terminal(self):
         if self._lap_number >= self.race_config('max_lap_count'):
