@@ -1,4 +1,5 @@
 import tempfile
+import argparse
 
 import trackdays.envs.race_circuit
 
@@ -136,7 +137,7 @@ def train_agent(
         batch_size=512,
         reward_scale_factor=5.0,
         total_training_steps=1000000,
-        eval_callback_rate=None,
+        eval_callback_rate=1000,
         avg_return_report_rate=1000,
         initial_collect_steps=10000,
         training_iteration_collect_steps=1,
@@ -230,23 +231,15 @@ def train_agent(
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--reward-scale', metavar='VAL', type=float, required=True)
+    parser.add_argument('--batch-size', metavar='NUM', type=int, required=False, default=64)
+    args = parser.parse_args()
+
     train_agent(
-        batch_size=512,
-        reward_scale_factor=5.0,
-        total_training_steps=1000000,
-        eval_callback_rate=None,
-        avg_return_report_rate=1000,
-        initial_collect_steps=10000,
-        training_iteration_collect_steps=1,
-        replay_buffer_size=120000,
-        num_eval_episodes=3,
-        checkpoint_dir='./checkpoints',
-        policy_dir='./policies',
-        tensorboard_dir='./tensorboard',
-        policy_save_rate=10000,
-        checkpoint_save_rate=20000,
+        batch_size=args.batch_size,
+        reward_scale_factor=args.reward_scale,
         env_config={
             'offscreen_rendering': True,
         },
-        eval_callback=None,
     )
