@@ -241,6 +241,9 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         reward_scale_factor=args.reward_scale,
         initial_collect_steps=args.initial_collect_steps,
+        tensorboard_dir='./tensorboard',
+        checkpoint_dir='./checkpoints',
+        policy_dir='./policies',
         env_config={
             'offscreen_rendering': True,
         },
