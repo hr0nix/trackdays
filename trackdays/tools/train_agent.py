@@ -198,7 +198,7 @@ def train_agent(
 
     if tensorboard_dir is None:
         tensorboard_dir = tempfile.mkdtemp()
-    print('Tensorboard logs will be stored in {0}'.format(policy_dir))
+    print('Tensorboard logs will be stored in {0}'.format(tensorboard_dir))
     writer = tf.summary.create_file_writer(tensorboard_dir)
     with writer.as_default():
         avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
