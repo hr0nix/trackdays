@@ -18,6 +18,13 @@ from tf_agents.policies.policy_saver import PolicySaver
 from tf_agents.utils import common
 
 
+def cudnn_workaround():
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+
+
 def load_env(env_config):
     gym_env = gym.make('racecircuit-v0', config=env_config or {})
     tf_agents_env = suite_gym.wrap_env(gym_env)
@@ -143,6 +150,8 @@ def train_agent(
         env_config=None,
         eval_callback=None,
 ):
+    cudnn_workaround()
+
     train_env = load_env(env_config)
     eval_env = load_env(env_config)
 
