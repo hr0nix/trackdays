@@ -234,11 +234,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--reward-scale', metavar='VAL', type=float, required=True)
     parser.add_argument('--batch-size', metavar='NUM', type=int, required=False, default=64)
+    parser.add_argument('--initial-collect-steps', metavar='NUM', type=int, required=False, default=10000)
     args = parser.parse_args()
 
     train_agent(
         batch_size=args.batch_size,
         reward_scale_factor=args.reward_scale,
+        initial_collect_steps=args.initial_collect_steps,
         env_config={
             'offscreen_rendering': True,
         },
