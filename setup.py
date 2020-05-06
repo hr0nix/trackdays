@@ -14,6 +14,8 @@ setuptools.setup(
       install_requires=[
             'tensorflow',
             'tf-agents',
+            'imageio',
+            'imageio-ffmpeg',
             'highway-env @ git+https://github.com/eleurent/highway-env'
       ],
 )
