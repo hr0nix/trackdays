@@ -1,11 +1,17 @@
 import math
 
+import numpy as np
+
 from gym.envs.registration import register
 
 from highway_env.envs.common.abstract import AbstractEnv
 from highway_env.road.road import Road, RoadNetwork
-from highway_env.road.lane import CircularLane, StraightLane, SineLane, LineType
+from highway_env.road.objects import RoadObject
+from highway_env.road.lane import CircularLane, SineLane, LineType
 from highway_env.vehicle.kinematics import Vehicle
+
+from highway_env.road.graphics import RoadObjectGraphics
+RoadObjectGraphics.DEFAULT_COLOR = RoadObjectGraphics.BLUE
 
 
 class Circuit(object):
@@ -42,13 +48,14 @@ class Circuit(object):
 
     def _create_circuit(self):
         circular_radius = 50
+        line_types = [LineType.STRIPED, LineType.CONTINUOUS]
         circular_lane_1 = CircularLane(
             center=(0.0, 0.0), radius=circular_radius, start_phase=0, end_phase=math.pi * 0.5,
-            speed_limit=self.speed_limit, width=self.circuit_width,
+            speed_limit=self.speed_limit, width=self.circuit_width, line_types=line_types
         )
         circular_lane_2 = CircularLane(
             center=(0.0, 0.0), radius=circular_radius, start_phase=math.pi * 0.5, end_phase=math.pi,
-            speed_limit=self.speed_limit, width=self.circuit_width,
+            speed_limit=self.speed_limit, width=self.circuit_width, line_types=line_types,
         )
         circular_lane_start = circular_lane_1.position(0, 0)
         circular_lane_end = circular_lane_2.position(circular_lane_2.length, 0)
@@ -58,6 +65,7 @@ class Circuit(object):
             pulsation=2 * math.pi / (circular_radius * 2),
             phase=0,
             speed_limit=self.speed_limit, width=self.circuit_width,
+            line_types=line_types,
         )
 
         self._add_lane('start', 'int1', circular_lane_1)
@@ -157,8 +165,14 @@ class RaceCircuitEnv(AbstractEnv):
         self._steps = 0
         return super().reset()
 
+    def _update_vehicle_front(self):
+        front_dir = np.array([math.cos(self.vehicle.heading), math.sin(self.vehicle.heading)])
+        self.vehicle_front.position = self.vehicle.position + front_dir * 7
+        self.vehicle_front.heading = self.vehicle.heading
+
     def step(self, action):
         self._vehicle_pos_before_update = self.vehicle.position.copy()
+        self._update_vehicle_front()
         result = super().step(action)
         self._update_progress()
         return result
@@ -187,6 +201,10 @@ class RaceCircuitEnv(AbstractEnv):
         )
         self._prev_pos = self.vehicle.position.copy()
         self.road.vehicles.append(self.vehicle)
+
+        self.vehicle_front = RoadObject(self.road, position=[0, 0])
+        self.road.objects.append(self.vehicle_front)
+        self._update_vehicle_front()
 
     def _is_terminal(self):
         if self._lap_number >= self.race_config('max_lap_count'):
