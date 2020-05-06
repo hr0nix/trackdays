@@ -119,7 +119,7 @@ class RaceCircuitEnv(AbstractEnv):
             'race_config': {
                 'max_lap_count': 2,
                 'max_steps': 100,
-                'out_of_circuit_stop_margin': 10,
+                'out_of_circuit_stop_margin': 50,
             },
             'reward_config': {
                 'out_of_circuit_reward_scale': -2,

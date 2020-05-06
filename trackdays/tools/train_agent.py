@@ -126,18 +126,19 @@ def create_collect_driver(train_env, agent, replay_buffer, collect_steps):
 
 
 def train_agent(
-        batch_size=32,
-        total_training_steps=100000,
+        batch_size=512,
+        reward_scale_factor=5.0,
+        total_training_steps=1000000,
         eval_callback_rate=None,
-        avg_return_report_rate=500,
+        avg_return_report_rate=1000,
         initial_collect_steps=10000,
         training_iteration_collect_steps=1,
-        replay_buffer_size=10000,
+        replay_buffer_size=120000,
         num_eval_episodes=3,
-        reward_scale_factor=1.0,
         checkpoint_dir=None,
         policy_dir=None,
-        policy_save_rate=10000,
+        tensorboard_dir=None,
+        policy_save_rate=5000,
         checkpoint_save_rate=20000,
         env_config=None,
         eval_callback=None,
@@ -185,34 +186,58 @@ def train_agent(
     print('Learned policies will be stored in {0}'.format(policy_dir))
     policy_saver = PolicySaver(agent.policy)
 
-    avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
-    tf.summary.scalar('Average return', avg_return, step=0)
-    tf.summary.scalar('Average number of steps', avg_num_steps, step=0)
+    if tensorboard_dir is None:
+        tensorboard_dir = tempfile.mkdtemp()
+    print('Tensorboard logs will be stored in {0}'.format(policy_dir))
+    writer = tf.summary.create_file_writer(tensorboard_dir)
+    with writer.as_default():
+        avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
+        tf.summary.scalar('Average return', avg_return, step=0)
+        tf.summary.scalar('Average number of steps', avg_num_steps, step=0)
 
-    for _ in range(total_training_steps):
-        collect_driver.run()
+        for _ in range(total_training_steps):
+            collect_driver.run()
 
-        experience, _ = next(dataset_iter)
-        agent.train(experience)
-        step = agent.train_step_counter.numpy()
+            experience, _ = next(dataset_iter)
+            agent.train(experience)
+            step = agent.train_step_counter.numpy()
 
-        if step % avg_return_report_rate == 0:
-            avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
-            tf.summary.scalar('Average return', avg_return, step=step)
-            tf.summary.scalar('Average number of steps', avg_num_steps, step=step)
+            if step % avg_return_report_rate == 0:
+                avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
+                tf.summary.scalar('Average return', avg_return, step=step)
+                tf.summary.scalar('Average number of steps', avg_num_steps, step=step)
 
-        if step % eval_callback_rate == 0:
-            if eval_callback is not None:
-                eval_callback(eval_env, eval_policy)
+            if step % eval_callback_rate == 0:
+                if eval_callback is not None:
+                    eval_callback(eval_env, eval_policy)
 
-        if step % policy_save_rate == 0:
-            policy_saver.save(policy_dir)
+            if step % policy_save_rate == 0:
+                policy_saver.save(policy_dir)
 
-        if step % checkpoint_save_rate == 0:
-            train_checkpointer.save(agent.train_step_counter)
+            if step % checkpoint_save_rate == 0:
+                train_checkpointer.save(agent.train_step_counter)
 
     return agent
 
 
 if __name__ == '__main__':
-    train_agent()
+    train_agent(
+        batch_size=512,
+        reward_scale_factor=5.0,
+        total_training_steps=1000000,
+        eval_callback_rate=None,
+        avg_return_report_rate=1000,
+        initial_collect_steps=10000,
+        training_iteration_collect_steps=1,
+        replay_buffer_size=120000,
+        num_eval_episodes=3,
+        checkpoint_dir='./checkpoints',
+        policy_dir='./policies',
+        tensorboard_dir='./tensorboard',
+        policy_save_rate=10000,
+        checkpoint_save_rate=20000,
+        env_config={
+            'offscreen_rendering': True,
+        },
+        eval_callback=None,
+    )
