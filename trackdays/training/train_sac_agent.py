@@ -91,9 +91,10 @@ def train_sac_agent(
         replay_buffer_size=120000,
         num_eval_episodes=3,
         checkpoint_dir=None,
-        policy_dir=None,
+        latest_policy_dir=None,
+        best_policy_dir=None,
         tensorboard_dir=None,
-        policy_save_rate=5000,
+        latest_policy_save_rate=5000,
         checkpoint_save_rate=20000,
 ):
     train_env = as_tf_env(env_factory())
@@ -134,19 +135,26 @@ def train_sac_agent(
     )
     train_checkpointer.initialize_or_restore()
 
-    if policy_dir is None:
-        policy_dir = tempfile.mkdtemp()
-    print('Learned policies will be stored in {0}'.format(policy_dir))
-    policy_saver = PolicySaver(agent.policy)
+    if latest_policy_dir is None:
+        latest_policy_dir = tempfile.mkdtemp()
+    print('Learned policies will be stored in {0}'.format(latest_policy_dir))
+    latest_policy_saver = PolicySaver(eval_policy)
+
+    if best_policy_dir is None:
+        best_policy_dir = tempfile.mkdtemp()
+    print('Learned policies will be stored in {0}'.format(best_policy_dir))
+    best_policy_saver = PolicySaver(eval_policy)
 
     if tensorboard_dir is None:
         tensorboard_dir = tempfile.mkdtemp()
     print('Tensorboard logs will be stored in {0}'.format(tensorboard_dir))
     writer = tf.summary.create_file_writer(tensorboard_dir)
+
     with writer.as_default():
         avg_return, avg_num_steps = evaluate_policy(eval_env, eval_policy, num_episodes=num_eval_episodes)
         tf.summary.scalar('Average return', avg_return, step=0)
         tf.summary.scalar('Average number of steps', avg_num_steps, step=0)
+        best_avg_return = avg_return
 
         for _ in range(total_training_steps):
             collect_driver.run()
@@ -160,11 +168,15 @@ def train_sac_agent(
                 tf.summary.scalar('Average return', avg_return, step=step)
                 tf.summary.scalar('Average number of steps', avg_num_steps, step=step)
 
+                if avg_return > best_avg_return:
+                    best_avg_return = avg_return
+                    best_policy_saver.save(best_policy_dir)
+
             if eval_callback_rate is not None and step % eval_callback_rate == 0:
                 eval_callback(eval_env, eval_policy)
 
-            if policy_save_rate is not None and step % policy_save_rate == 0:
-                policy_saver.save(policy_dir)
+            if latest_policy_save_rate is not None and step % latest_policy_save_rate == 0:
+                latest_policy_saver.save(latest_policy_dir)
 
             if checkpoint_save_rate is not None and step % checkpoint_save_rate == 0:
                 train_checkpointer.save(agent.train_step_counter)
