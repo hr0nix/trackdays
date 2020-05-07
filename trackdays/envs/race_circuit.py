@@ -157,9 +157,9 @@ class RaceCircuitEnv(AbstractEnv):
                 'tick': -0.5,
                 'lap_progress': 2,
             },
-            'screen_width': 200,
-            'screen_height': 200,
-            'scaling': 4,
+            'screen_width': 100,
+            'screen_height': 100,
+            'scaling': 3,
             'centering_position': [0.5, 0.5],
             'simulation_frequency': 6,
             'policy_frequency': 3,
@@ -167,7 +167,7 @@ class RaceCircuitEnv(AbstractEnv):
                 'type': 'GrayscaleObservation',
                 'weights': [0.33, 0.33, 0.33],
                 'stack_size': 1,
-                'observation_shape': (200, 200),
+                'observation_shape': (100, 100),
             },
             'action': {
                 'type': 'Continuous'
