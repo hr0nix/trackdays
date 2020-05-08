@@ -1,6 +1,9 @@
 import imageio
 
 import tensorflow as tf
+import numpy as np
+
+from PIL import Image, ImageDraw, ImageFont
 
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.drivers import dynamic_step_driver
@@ -18,13 +21,26 @@ def visualize_policy(environment, policy, output_filename, num_episodes=1, fps=5
         rendering_environment = environment.pyenv.envs[0]
 
     with imageio.get_writer(output_filename, fps=fps) as video:
+        font = ImageFont.load_default()
+        total_reward = None
+
+        def _add_environment_frame():
+            rendered_env = rendering_environment.render()
+            image = Image.fromarray(rendered_env.astype(np.uint8), mode='RGB')
+            draw = ImageDraw.Draw(image)
+            draw.text((5, 5), 'TR: %.1f' % total_reward, font=font)
+            image_as_numpy = np.array(image.getdata()).reshape(rendered_env.shape).astype(np.uint8)
+            video.append_data(image_as_numpy)
+
         for _ in range(num_episodes):
+            total_reward = 0.0
             time_step = environment.reset()
-            video.append_data(rendering_environment.render())
+            _add_environment_frame()
             while not time_step.is_last():
                 action_step = policy.action(time_step)
                 time_step = environment.step(action_step.action)
-                video.append_data(rendering_environment.render())
+                total_reward += time_step.reward.numpy()[0]
+                _add_environment_frame()
 
 
 def evaluate_policy(env, policy, num_episodes):
